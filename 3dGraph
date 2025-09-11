@@ -1,62 +1,56 @@
-import plotly.graph_objects as go
 import networkx as nx
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
 
 def plot_hetero_graph_3d(data):
-    # Build NetworkX graph
+    # Convert hetero -> homo graph for visualization
     G = nx.Graph()
+
+    # Add nodes with type info
     for ntype, x in data.x_dict.items():
         for i in range(x.size(0)):
             G.add_node(f"{ntype}_{i}", ntype=ntype)
 
+    # Add edges with relation info
     for (src, rel, dst), edge_index in data.edge_index_dict.items():
         for u, v in edge_index.t().tolist():
             G.add_edge(f"{src}_{u}", f"{dst}_{v}", rel=rel)
 
-    # Generate random 3D positions
-    pos = {n: (torch.randn(1).item(), torch.randn(1).item(), torch.randn(1).item()) for n in G.nodes()}
+    # 3D spring layout
+    pos = nx.spring_layout(G, dim=3, seed=42, k=0.5)
 
-    # Separate nodes by type for coloring
+    # Extract positions
+    xs, ys, zs = [], [], []
+    colors_list = []
     colors = {'order': 'skyblue', 'product': 'lightgreen', 'part': 'salmon'}
-    node_x, node_y, node_z, node_color, node_text = [], [], [], [], []
+    
     for n, d in G.nodes(data=True):
         x, y, z = pos[n]
-        node_x.append(x)
-        node_y.append(y)
-        node_z.append(z)
-        node_color.append(colors.get(d['ntype'], 'gray'))
-        node_text.append(n)
+        xs.append(x)
+        ys.append(y)
+        zs.append(z)
+        colors_list.append(colors.get(d['ntype'], 'gray'))
 
-    # Create edge traces
-    edge_x, edge_y, edge_z = [], [], []
+    # Plot
+    fig = plt.figure(figsize=(10, 8))
+    ax = fig.add_subplot(111, projection='3d')
+
+    # Draw nodes
+    ax.scatter(xs, ys, zs, c=colors_list, s=100, alpha=0.8)
+
+    # Draw edges
     for u, v in G.edges():
-        x0, y0, z0 = pos[u]
-        x1, y1, z1 = pos[v]
-        edge_x += [x0, x1, None]
-        edge_y += [y0, y1, None]
-        edge_z += [z0, z1, None]
+        x = [pos[u][0], pos[v][0]]
+        y = [pos[u][1], pos[v][1]]
+        z = [pos[u][2], pos[v][2]]
+        ax.plot(x, y, z, c='gray', alpha=0.3)
 
-    edge_trace = go.Scatter3d(
-        x=edge_x, y=edge_y, z=edge_z,
-        line=dict(width=1, color='black'),
-        hoverinfo='none',
-        mode='lines'
-    )
+    # Optional: labels (can get messy in 3D)
+    # for n, (x, y, z) in pos.items():
+    #     ax.text(x, y, z, n, fontsize=6)
 
-    node_trace = go.Scatter3d(
-        x=node_x, y=node_y, z=node_z,
-        mode='markers+text',
-        marker=dict(size=8, color=node_color),
-        text=node_text,
-        textposition='top center',
-        hoverinfo='text'
-    )
+    ax.set_title("Heterogeneous Graph (3D)")
+    plt.show()
 
-    fig = go.Figure(data=[edge_trace, node_trace])
-    fig.update_layout(scene=dict(xaxis=dict(showgrid=False, visible=False),
-                                 yaxis=dict(showgrid=False, visible=False),
-                                 zaxis=dict(showgrid=False, visible=False)),
-                      title="3D Heterogeneous Graph")
-    fig.show()
-
-# Call the function
+# Call it
 plot_hetero_graph_3d(data)
