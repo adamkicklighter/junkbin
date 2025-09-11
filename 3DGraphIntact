@@ -1,0 +1,73 @@
+import networkx as nx
+import plotly.graph_objects as go
+
+def plot_hetero_graph_3d_interactive(data):
+    # Convert hetero -> homo graph for visualization
+    G = nx.Graph()
+
+    # Add nodes with type info
+    for ntype, x in data.x_dict.items():
+        for i in range(x.size(0)):
+            G.add_node(f"{ntype}_{i}", ntype=ntype)
+
+    # Add edges with relation info
+    for (src, rel, dst), edge_index in data.edge_index_dict.items():
+        for u, v in edge_index.t().tolist():
+            G.add_edge(f"{src}_{u}", f"{dst}_{v}", rel=rel)
+
+    # 3D spring layout
+    pos = nx.spring_layout(G, dim=3, seed=42, k=0.5)
+
+    # Node coordinates and colors
+    colors = {'order': 'skyblue', 'product': 'lightgreen', 'part': 'salmon'}
+    node_x, node_y, node_z, node_color, node_text = [], [], [], [], []
+    
+    for n, d in G.nodes(data=True):
+        x, y, z = pos[n]
+        node_x.append(x)
+        node_y.append(y)
+        node_z.append(z)
+        node_color.append(colors.get(d['ntype'], 'gray'))
+        node_text.append(n)
+
+    # Edge coordinates
+    edge_x, edge_y, edge_z = [], [], []
+    for u, v in G.edges():
+        x0, y0, z0 = pos[u]
+        x1, y1, z1 = pos[v]
+        edge_x += [x0, x1, None]  # None separates edges
+        edge_y += [y0, y1, None]
+        edge_z += [z0, z1, None]
+
+    # Create Plotly traces
+    edge_trace = go.Scatter3d(
+        x=edge_x, y=edge_y, z=edge_z,
+        mode='lines',
+        line=dict(color='gray', width=2),
+        hoverinfo='none'
+    )
+
+    node_trace = go.Scatter3d(
+        x=node_x, y=node_y, z=node_z,
+        mode='markers+text',
+        marker=dict(size=8, color=node_color),
+        text=node_text,
+        hoverinfo='text'
+    )
+
+    fig = go.Figure(data=[edge_trace, node_trace])
+    fig.update_layout(
+        title="Heterogeneous Graph (3D Interactive)",
+        showlegend=False,
+        scene=dict(
+            xaxis=dict(showbackground=False),
+            yaxis=dict(showbackground=False),
+            zaxis=dict(showbackground=False)
+        ),
+        margin=dict(l=0, r=0, b=0, t=50)
+    )
+
+    fig.show()
+
+# Call it
+plot_hetero_graph_3d_interactive(data)
