@@ -1,0 +1,62 @@
+import plotly.graph_objects as go
+import networkx as nx
+
+def plot_hetero_graph_3d(data):
+    # Build NetworkX graph
+    G = nx.Graph()
+    for ntype, x in data.x_dict.items():
+        for i in range(x.size(0)):
+            G.add_node(f"{ntype}_{i}", ntype=ntype)
+
+    for (src, rel, dst), edge_index in data.edge_index_dict.items():
+        for u, v in edge_index.t().tolist():
+            G.add_edge(f"{src}_{u}", f"{dst}_{v}", rel=rel)
+
+    # Generate random 3D positions
+    pos = {n: (torch.randn(1).item(), torch.randn(1).item(), torch.randn(1).item()) for n in G.nodes()}
+
+    # Separate nodes by type for coloring
+    colors = {'order': 'skyblue', 'product': 'lightgreen', 'part': 'salmon'}
+    node_x, node_y, node_z, node_color, node_text = [], [], [], [], []
+    for n, d in G.nodes(data=True):
+        x, y, z = pos[n]
+        node_x.append(x)
+        node_y.append(y)
+        node_z.append(z)
+        node_color.append(colors.get(d['ntype'], 'gray'))
+        node_text.append(n)
+
+    # Create edge traces
+    edge_x, edge_y, edge_z = [], [], []
+    for u, v in G.edges():
+        x0, y0, z0 = pos[u]
+        x1, y1, z1 = pos[v]
+        edge_x += [x0, x1, None]
+        edge_y += [y0, y1, None]
+        edge_z += [z0, z1, None]
+
+    edge_trace = go.Scatter3d(
+        x=edge_x, y=edge_y, z=edge_z,
+        line=dict(width=1, color='black'),
+        hoverinfo='none',
+        mode='lines'
+    )
+
+    node_trace = go.Scatter3d(
+        x=node_x, y=node_y, z=node_z,
+        mode='markers+text',
+        marker=dict(size=8, color=node_color),
+        text=node_text,
+        textposition='top center',
+        hoverinfo='text'
+    )
+
+    fig = go.Figure(data=[edge_trace, node_trace])
+    fig.update_layout(scene=dict(xaxis=dict(showgrid=False, visible=False),
+                                 yaxis=dict(showgrid=False, visible=False),
+                                 zaxis=dict(showgrid=False, visible=False)),
+                      title="3D Heterogeneous Graph")
+    fig.show()
+
+# Call the function
+plot_hetero_graph_3d(data)
